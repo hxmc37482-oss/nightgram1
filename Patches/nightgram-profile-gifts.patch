@@ -393,7 +393,7 @@ diff --git a/submodules/NightGram/Sources/NightGramLocalGiftGalleryView.swift b/
 new file mode 100644
 --- /dev/null
 +++ b/submodules/NightGram/Sources/NightGramLocalGiftGalleryView.swift
-@@ -0,0 +1,148 @@
+@@ -0,0 +1,149 @@
 +import SwiftUI
 +import AccountContext
 +import Postbox
