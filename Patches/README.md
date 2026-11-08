@@ -11,8 +11,9 @@ Telegram-iOS source repository.
 From the root of a checkout at the target base commit:
 
 ```sh
-git apply --check nightgram-profile-gifts.patch
-git apply nightgram-profile-gifts.patch
+git checkout da12a534a2fc561f1be6dc6753ee64d62f5f5cbf
+git apply --check Patches/nightgram-profile-gifts.patch
+git apply Patches/nightgram-profile-gifts.patch
 ```
 
 It adds a local Postbox-backed gift collection and a profile entry that opens it
