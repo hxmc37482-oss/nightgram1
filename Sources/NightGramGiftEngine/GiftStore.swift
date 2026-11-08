@@ -15,10 +15,7 @@ public actor GiftStore {
 
     public init(databaseURL: URL) throws {
         let directory = databaseURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(
-            at: directory,
-            withIntermediateDirectories: true
-        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         guard sqlite3_open(databaseURL.path, &db) == SQLITE_OK, db != nil else {
             let message = db.map { String(cString: sqlite3_errmsg($0)) } ?? "Unknown SQLite error"
@@ -45,18 +42,14 @@ public actor GiftStore {
     }
 
     public func save(_ gift: LocalGift) throws {
-        let payload = try json(gift)
         try run(
             "INSERT OR REPLACE INTO gifts(id, payload) VALUES(?, ?);",
-            values: [gift.id.uuidString, payload]
+            values: [gift.id.uuidString, try json(gift)]
         )
     }
 
     public func gift(id: UUID) throws -> LocalGift? {
-        let rows = try query(
-            "SELECT payload FROM gifts WHERE id = ? LIMIT 1;",
-            values: [id.uuidString]
-        )
+        let rows = try query("SELECT payload FROM gifts WHERE id = ? LIMIT 1;", values: [id.uuidString])
         guard let first = rows.first else { return nil }
         return try decode(LocalGift.self, from: first)
     }
@@ -65,8 +58,33 @@ public actor GiftStore {
         let rows = try query("SELECT payload FROM gifts;")
         return try rows
             .map { try decode(LocalGift.self, from: $0) }
-            .filter { $0.ownerProfileID == ownerProfileID && (includeHidden || !$0.isHidden) }
+            .filter {
+                $0.ownerProfileID == ownerProfileID
+                && (includeHidden || !$0.isHidden)
+                && $0.soldAt == nil
+            }
+            .sorted {
+                if $0.isPinned != $1.isPinned { return $0.isPinned }
+                return $0.createdAt > $1.createdAt
+            }
+    }
+
+    public func allGifts(includeSold: Bool = true) throws -> [LocalGift] {
+        let rows = try query("SELECT payload FROM gifts;")
+        return try rows
+            .map { try decode(LocalGift.self, from: $0) }
+            .filter { includeSold || $0.soldAt == nil }
             .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    public func marketGifts() throws -> [LocalGift] {
+        try allGifts(includeSold: false)
+            .filter { $0.marketPrice != nil }
+            .sorted { ($0.marketListedAt ?? .distantPast) > ($1.marketListedAt ?? .distantPast) }
+    }
+
+    public func delete(id: UUID) throws {
+        try run("DELETE FROM gifts WHERE id = ?;", values: [id.uuidString])
     }
 
     public func append(_ event: GiftEvent) throws {
@@ -101,7 +119,6 @@ public actor GiftStore {
             throw GiftStoreError.sqlite(String(cString: sqlite3_errmsg(db)))
         }
         defer { sqlite3_finalize(statement) }
-
         for (index, value) in values.enumerated() {
             sqlite3_bind_text(statement, Int32(index + 1), value, -1, Self.transient)
         }
@@ -117,11 +134,9 @@ public actor GiftStore {
             throw GiftStoreError.sqlite(String(cString: sqlite3_errmsg(db)))
         }
         defer { sqlite3_finalize(statement) }
-
         for (index, value) in values.enumerated() {
             sqlite3_bind_text(statement, Int32(index + 1), value, -1, Self.transient)
         }
-
         var result: [String] = []
         while sqlite3_step(statement) == SQLITE_ROW {
             guard let text = sqlite3_column_text(statement, 0) else { continue }
