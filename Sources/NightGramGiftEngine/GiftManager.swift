@@ -109,6 +109,13 @@ public actor GiftManager {
         try await store.marketGifts()
     }
 
+    /// Backward-compatible name retained for existing NightGram callers.
+    /// This is a local profile-record move only, not a Telegram gift transfer.
+    @available(*, deprecated, message: "Use transferLocally(giftID:to:) to make the local-only behavior explicit")
+    public func transfer(giftID: UUID, to profileID: String) async throws {
+        try await transferLocally(giftID: giftID, to: profileID)
+    }
+
     /// Changes ownership only between local NightGram profile records on this device.
     /// It does not send a Telegram message or transfer a collectible to another account.
     public func transferLocally(giftID: UUID, to profileID: String) async throws {
