@@ -25,7 +25,15 @@ public struct GiftCollectionView: View {
             }
 
             if gifts.isEmpty {
-                ContentUnavailableView("No local gifts", systemImage: "gift", description: Text("Demo gifts added on this device will appear here."))
+                VStack(spacing: 8) {
+                    Image(systemName: "gift").font(.largeTitle).foregroundStyle(.secondary)
+                    Text("No local gifts").font(.headline)
+                    Text("Demo gifts added on this device will appear here.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
             } else {
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(gifts.sorted { $0.isPinned && !$1.isPinned }) { gift in
