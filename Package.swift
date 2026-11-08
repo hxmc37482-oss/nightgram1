@@ -5,7 +5,8 @@ let package = Package(
     name: "NightGram",
     platforms: [.iOS(.v16)],
     products: [
-        .library(name: "NightGramGiftEngine", targets: ["NightGramGiftEngine"])
+        .library(name: "NightGramGiftEngine", targets: ["NightGramGiftEngine"]),
+        .library(name: "NightGramGiftUI", targets: ["NightGramGiftUI"])
     ],
     targets: [
         .systemLibrary(
@@ -17,6 +18,11 @@ let package = Package(
             name: "NightGramGiftEngine",
             dependencies: ["CSQLite"],
             path: "Sources/NightGramGiftEngine"
+        ),
+        .target(
+            name: "NightGramGiftUI",
+            dependencies: ["NightGramGiftEngine"],
+            path: "Sources/NightGramGiftUI"
         ),
         .testTarget(
             name: "NightGramGiftEngineTests",
