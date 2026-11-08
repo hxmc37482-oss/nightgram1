@@ -396,6 +396,7 @@ new file mode 100644
 @@ -0,0 +1,148 @@
 +import SwiftUI
 +import AccountContext
++import Postbox
 +import SwiftSignalKit
 +
 +private final class NightGramLocalGiftGalleryModel: ObservableObject {
