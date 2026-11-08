@@ -1,0 +1,544 @@
+diff --git a/submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoProfileItems.swift b/submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoProfileItems.swift
+--- a/submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoProfileItems.swift
++++ b/submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoProfileItems.swift
+@@ -400,6 +400,17 @@
+-            }
+-        }
+-        
+-        if !isMyProfile {
+-            if !data.isContact, user.botInfo == nil {
+-                items[currentPeerInfoSection]!.append(PeerInfoScreenActionItem(id: ItemAddToContacts, text: presentationData.strings.PeerInfo_AddToContacts, action: {
++            }
++        }
++        
++        if isMyProfile {
++            items[currentPeerInfoSection]!.append(PeerInfoScreenActionItem(
++                id: "nightgram_local_gifts",
++                text: "NightGram · Локальные подарки (DEMO)",
++                icon: UIImage(systemName: "gift.fill"),
++                action: {
++                    interaction.openSettings(.nightgram)
++                }
++            ))
++        }
++
++        if !isMyProfile {
++            if !data.isContact, user.botInfo == nil {
++                items[currentPeerInfoSection]!.append(PeerInfoScreenActionItem(id: ItemAddToContacts, text: presentationData.strings.PeerInfo_AddToContacts, action: {
+
+diff --git a/submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoScreenSettingsActions.swift b/submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoScreenSettingsActions.swift
+--- a/submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoScreenSettingsActions.swift
++++ b/submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoScreenSettingsActions.swift
+@@ -309,7 +309,7 @@
+-            }
+-            push(self.context.sharedContext.makeWalletScreen(context: self.context))
+-        case .nightgram:
+-            push(makeNightGramPanelController())
+-        }
+-    }
+-
++            }
++            push(self.context.sharedContext.makeWalletScreen(context: self.context))
++        case .nightgram:
++            push(makeNightGramPanelController(context: self.context))
++        }
++    }
++
+
+diff --git a/submodules/NightGram/Sources/NightGramEntry.swift b/submodules/NightGram/Sources/NightGramEntry.swift
+--- a/submodules/NightGram/Sources/NightGramEntry.swift
++++ b/submodules/NightGram/Sources/NightGramEntry.swift
+@@ -2,35 +2,38 @@
+-import UIKit
+-import Display
+-import AsyncDisplayKit
+-
+-/// A Telegram-native controller that hosts the NightGram SwiftUI panel.
+-private final class NightGramPanelController: ViewController {
+-    private var hostingController: UIHostingController<NightGramPanel>?
+-
+-    init() {
+-        super.init(navigationBarPresentationData: nil)
+-    }
+-
+-    required init?(coder: NSCoder) {
+-        fatalError("init(coder:) is not supported")
+-    }
+-
+-    override func loadDisplayNode() {
+-        super.loadDisplayNode()
+-
+-        let hostingController = UIHostingController(rootView: NightGramPanel())
+-        self.hostingController = hostingController
+-        self.addChild(hostingController)
+-        hostingController.view.backgroundColor = .clear
+-        hostingController.view.frame = self.displayNode.view.bounds
+-        hostingController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+-        self.displayNode.view.addSubview(hostingController.view)
+-        hostingController.didMove(toParent: self)
+-    }
+-}
+-
+-/// Creates the NightGram panel for presentation from Telegram's settings navigation.
+-public func makeNightGramPanelController() -> ViewController {
+-    return NightGramPanelController()
+-}
+-
++import UIKit
++import Display
++import AsyncDisplayKit
++import AccountContext
++
++/// A Telegram-native controller that hosts the NightGram SwiftUI panel.
++private final class NightGramPanelController: ViewController {
++    private let context: AccountContext
++    private var hostingController: UIHostingController<NightGramPanel>?
++
++    init(context: AccountContext) {
++        self.context = context
++        super.init(navigationBarPresentationData: nil)
++    }
++
++    required init?(coder: NSCoder) {
++        fatalError("init(coder:) is not supported")
++    }
++
++    override func loadDisplayNode() {
++        super.loadDisplayNode()
++
++        let hostingController = UIHostingController(rootView: NightGramPanel(context: self.context))
++        self.hostingController = hostingController
++        self.addChild(hostingController)
++        hostingController.view.backgroundColor = .clear
++        hostingController.view.frame = self.displayNode.view.bounds
++        hostingController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
++        self.displayNode.view.addSubview(hostingController.view)
++        hostingController.didMove(toParent: self)
++    }
++}
++
++/// Creates the NightGram panel with access to the current account's local Postbox.
++public func makeNightGramPanelController(context: AccountContext) -> ViewController {
++    return NightGramPanelController(context: context)
++}
++
+
+diff --git a/submodules/NightGram/Sources/NightGramPanel.swift b/submodules/NightGram/Sources/NightGramPanel.swift
+--- a/submodules/NightGram/Sources/NightGramPanel.swift
++++ b/submodules/NightGram/Sources/NightGramPanel.swift
+@@ -1,23 +1,27 @@
+-import SwiftUI
+-
+-/// NightGram's local-only settings prototype.
+-/// The host app must add a navigation entry before users can open this view.
+-public struct NightGramPanel: View {
+-    @AppStorage("nightgram.hideReadStatus") private var hideReadStatus = false
+-
+-    public init() {}
+-
+-    public var body: some View {
+-        NavigationView {
+-            List {
+-                Section("NightGram") {
+-                    NavigationLink {
+-                        NightGramGiftChatDemoView()
+-                    } label: {
+-                        Label("Send visual gift (demo chat)", systemImage: "gift.fill")
+-                    }
+-                    NavigationLink {
+-                        NightGramGiftGalleryView()
+-                    } label: {
+-                        Label("Visual gifts gallery", systemImage: "gift")
+-                    }
++import SwiftUI
++import AccountContext
++
++/// NightGram's local-only settings prototype.
++/// The host app must add a navigation entry before users can open this view.
++public struct NightGramPanel: View {
++    private let context: AccountContext
++    @AppStorage("nightgram.hideReadStatus") private var hideReadStatus = false
++
++    public init(context: AccountContext) {
++        self.context = context
++    }
++
++    public var body: some View {
++        NavigationView {
++            List {
++                Section("NightGram") {
++                    NavigationLink {
++                        NightGramGiftChatDemoView()
++                    } label: {
++                        Label("Send visual gift (demo chat)", systemImage: "gift.fill")
++                    }
++                    NavigationLink {
++                        NightGramLocalGiftGalleryView(context: context)
++                    } label: {
++                        Label("Visual gifts gallery", systemImage: "gift")
++                    }
+
+diff --git a/submodules/NightGram/BUILD b/submodules/NightGram/BUILD
+--- a/submodules/NightGram/BUILD
++++ b/submodules/NightGram/BUILD
+@@ -12,6 +12,9 @@
+-    deps = [
+-        "//submodules/AsyncDisplayKit",
+-        "//submodules/Display",
+-    ],
+-    visibility = ["//visibility:public"],
+-)
++    deps = [
++        "//submodules/AsyncDisplayKit",
++        "//submodules/Display",
++        "//submodules/AccountContext",
++        "//submodules/Postbox",
++        "//submodules/SSignalKit/SwiftSignalKit",
++    ],
++    visibility = ["//visibility:public"],
++)
+
+diff --git a/submodules/NightGram/Sources/NightGramLocalGiftStore.swift b/submodules/NightGram/Sources/NightGramLocalGiftStore.swift
+new file mode 100644
+--- /dev/null
++++ b/submodules/NightGram/Sources/NightGramLocalGiftStore.swift
+@@ -0,0 +1,185 @@
++import Foundation
++import Postbox
++import SwiftSignalKit
++
++/// A gift that exists only in this account's local Postbox.
++/// It is not a Telegram StarGift and is never sent to another device.
++public struct NightGramLocalGift: Codable, Equatable, Identifiable {
++    public let id: Int64
++    public let title: String
++    public let symbol: String
++    public let price: Int64
++    public let createdAt: Int32
++    public let isReceived: Bool
++    public var isPinned: Bool
++    public var isHidden: Bool
++    public var soldAt: Int32?
++
++    public init(
++        id: Int64 = Int64.random(in: 1...Int64.max),
++        title: String,
++        symbol: String,
++        price: Int64,
++        createdAt: Int32 = Int32(Date().timeIntervalSince1970),
++        isReceived: Bool = false,
++        isPinned: Bool = false,
++        isHidden: Bool = false,
++        soldAt: Int32? = nil
++    ) {
++        self.id = id
++        self.title = title
++        self.symbol = symbol
++        self.price = max(0, price)
++        self.createdAt = createdAt
++        self.isReceived = isReceived
++        self.isPinned = isPinned
++        self.isHidden = isHidden
++        self.soldAt = soldAt
++    }
++}
++
++public struct NightGramLocalGiftOperation: Codable, Equatable, Identifiable {
++    public let id: Int64
++    public let kind: String
++    public let amount: Int64
++    public let title: String
++    public let balanceAfter: Int64
++    public let createdAt: Int32
++
++    public init(id: Int64 = Int64.random(in: 1...Int64.max), kind: String, amount: Int64, title: String, balanceAfter: Int64, createdAt: Int32 = Int32(Date().timeIntervalSince1970)) {
++        self.id = id
++        self.kind = kind
++        self.amount = amount
++        self.title = title
++        self.balanceAfter = balanceAfter
++        self.createdAt = createdAt
++    }
++}
++
++public struct NightGramLocalGiftState: Codable, Equatable {
++    public var gifts: [NightGramLocalGift]
++    public var fakeStarsBalance: Int64
++    public var fakeTonBalanceNanos: Int64
++    public var operations: [NightGramLocalGiftOperation]
++
++    public init(gifts: [NightGramLocalGift] = [], fakeStarsBalance: Int64 = 50_000, fakeTonBalanceNanos: Int64 = 0, operations: [NightGramLocalGiftOperation] = []) {
++        self.gifts = gifts
++        self.fakeStarsBalance = fakeStarsBalance
++        self.fakeTonBalanceNanos = fakeTonBalanceNanos
++        self.operations = operations
++    }
++}
++
++/// Postbox-backed storage, following PampGram's PreferencesEntry pattern.
++/// The key is reserved for NightGram and is separate from Telegram's real gift/balance keys.
++public enum NightGramLocalGiftStore {
++    private static let storageKey: ValueBoxKey = {
++        let key = ValueBoxKey(length: 4)
++        key.setInt32(0, value: 910_100)
++        return key
++    }()
++
++    public static func stateSignal(postbox: Postbox) -> Signal<NightGramLocalGiftState, NoError> {
++        return postbox.preferencesView(keys: [storageKey])
++        |> map { view in
++            return view.values[storageKey]?.get(NightGramLocalGiftState.self) ?? NightGramLocalGiftState()
++        }
++        |> distinctUntilChanged
++    }
++
++    @discardableResult
++    public static func addDemoGift(postbox: Postbox, title: String, symbol: String, price: Int64 = 100, received: Bool) -> Signal<Bool, NoError> {
++        return postbox.transaction { transaction -> Bool in
++            var state = transaction.getPreferencesEntry(key: storageKey)?.get(NightGramLocalGiftState.self) ?? NightGramLocalGiftState()
++            guard price > 0 else {
++                return false
++            }
++
++            let updatedBalance: Int64
++            if received {
++                let result = state.fakeStarsBalance.addingReportingOverflow(price)
++                guard !result.overflow else {
++                    return false
++                }
++                updatedBalance = result.partialValue
++            } else {
++                guard state.fakeStarsBalance >= price else {
++                    return false
++                }
++                updatedBalance = state.fakeStarsBalance - price
++            }
++
++            let gift = NightGramLocalGift(title: title, symbol: symbol, price: price, isReceived: received)
++            state.gifts.append(gift)
++            state.fakeStarsBalance = updatedBalance
++            state.operations.insert(
++                NightGramLocalGiftOperation(
++                    kind: received ? "demoReceived" : "demoPurchase",
++                    amount: received ? price : -price,
++                    title: received ? "Демо-подарок мне" : "Демо-покупка подарка",
++                    balanceAfter: updatedBalance
++                ),
++                at: 0
++            )
++            if state.operations.count > 500 {
++                state.operations = Array(state.operations.prefix(500))
++            }
++            transaction.updatePreferencesEntry(key: storageKey, { _ in
++                return PreferencesEntry(state)
++            })
++            return true
++        }
++    }
++
++    @discardableResult
++    public static func setPinned(postbox: Postbox, id: Int64, pinned: Bool) -> Signal<Bool, NoError> {
++        return postbox.transaction { transaction -> Bool in
++            var state = transaction.getPreferencesEntry(key: storageKey)?.get(NightGramLocalGiftState.self) ?? NightGramLocalGiftState()
++            guard let index = state.gifts.firstIndex(where: { $0.id == id && $0.soldAt == nil }) else {
++                return false
++            }
++            state.gifts[index].isPinned = pinned
++            transaction.updatePreferencesEntry(key: storageKey, { _ in PreferencesEntry(state) })
++            return true
++        }
++    }
++
++    @discardableResult
++    public static func setHidden(postbox: Postbox, id: Int64, hidden: Bool) -> Signal<Bool, NoError> {
++        return postbox.transaction { transaction -> Bool in
++            var state = transaction.getPreferencesEntry(key: storageKey)?.get(NightGramLocalGiftState.self) ?? NightGramLocalGiftState()
++            guard let index = state.gifts.firstIndex(where: { $0.id == id && $0.soldAt == nil }) else {
++                return false
++            }
++            state.gifts[index].isHidden = hidden
++            transaction.updatePreferencesEntry(key: storageKey, { _ in PreferencesEntry(state) })
++            return true
++        }
++    }
++
++    @discardableResult
++    public static func sellDemoGift(postbox: Postbox, id: Int64) -> Signal<Bool, NoError> {
++        return postbox.transaction { transaction -> Bool in
++            var state = transaction.getPreferencesEntry(key: storageKey)?.get(NightGramLocalGiftState.self) ?? NightGramLocalGiftState()
++            guard let index = state.gifts.firstIndex(where: { $0.id == id && $0.soldAt == nil }) else {
++                return false
++            }
++            let gift = state.gifts[index]
++            let result = state.fakeStarsBalance.addingReportingOverflow(gift.price)
++            guard !result.overflow else {
++                return false
++            }
++            state.fakeStarsBalance = result.partialValue
++            state.gifts[index].soldAt = Int32(Date().timeIntervalSince1970)
++            state.gifts[index].isHidden = true
++            state.gifts[index].isPinned = false
++            state.operations.insert(
++                NightGramLocalGiftOperation(kind: "demoSale", amount: gift.price, title: "Демо-продажа подарка", balanceAfter: state.fakeStarsBalance),
++                at: 0
++            )
++            transaction.updatePreferencesEntry(key: storageKey, { _ in PreferencesEntry(state) })
++            return true
++        }
++    }
++}
++
+
+diff --git a/submodules/NightGram/Sources/NightGramLocalGiftGalleryView.swift b/submodules/NightGram/Sources/NightGramLocalGiftGalleryView.swift
+new file mode 100644
+--- /dev/null
++++ b/submodules/NightGram/Sources/NightGramLocalGiftGalleryView.swift
+@@ -0,0 +1,148 @@
++import SwiftUI
++import AccountContext
++import SwiftSignalKit
++
++private final class NightGramLocalGiftGalleryModel: ObservableObject {
++    @Published private(set) var state = NightGramLocalGiftState()
++    @Published private(set) var statusText = "LOCAL DEMO"
++
++    private let postbox: Postbox
++    private let disposables = DisposableSet()
++
++    init(context: AccountContext) {
++        self.postbox = context.account.postbox
++        let stateDisposable = (NightGramLocalGiftStore.stateSignal(postbox: self.postbox)
++        |> deliverOnMainQueue).startStrict(next: { [weak self] state in
++            self?.state = state
++        })
++        self.disposables.add(stateDisposable)
++    }
++
++    deinit {
++        self.disposables.dispose()
++    }
++
++    func addGift(received: Bool) {
++        let disposable = (NightGramLocalGiftStore.addDemoGift(
++            postbox: self.postbox,
++            title: received ? "Gift received (demo)" : "Rose",
++            symbol: received ? "🎁" : "🌹",
++            price: 100,
++            received: received
++        )
++        |> deliverOnMainQueue).startStrict(next: { [weak self] success in
++            self?.statusText = success ? "LOCAL DEMO · saved on this device" : "Not enough demo Stars"
++        })
++        self.disposables.add(disposable)
++    }
++
++    func pin(_ gift: NightGramLocalGift) {
++        let disposable = NightGramLocalGiftStore.setPinned(postbox: self.postbox, id: gift.id, pinned: !gift.isPinned).start()
++        self.disposables.add(disposable)
++    }
++
++    func hide(_ gift: NightGramLocalGift) {
++        let disposable = NightGramLocalGiftStore.setHidden(postbox: self.postbox, id: gift.id, hidden: !gift.isHidden).start()
++        self.disposables.add(disposable)
++    }
++
++    func sell(_ gift: NightGramLocalGift) {
++        let disposable = NightGramLocalGiftStore.sellDemoGift(postbox: self.postbox, id: gift.id).start()
++        self.disposables.add(disposable)
++    }
++}
++
++public struct NightGramLocalGiftGalleryView: View {
++    @StateObject private var model: NightGramLocalGiftGalleryModel
++
++    public init(context: AccountContext) {
++        _model = StateObject(wrappedValue: NightGramLocalGiftGalleryModel(context: context))
++    }
++
++    public var body: some View {
++        List {
++            Section {
++                HStack {
++                    Label("\(model.state.fakeStarsBalance) demo Stars", systemImage: "star.fill")
++                    Spacer()
++                    Text("LOCAL")
++                        .font(.caption2.weight(.bold))
++                        .foregroundStyle(.orange)
++                }
++                Text("This balance is stored in this account's local Postbox. It is not Telegram Stars and cannot be spent or transferred.")
++                    .font(.footnote)
++                    .foregroundStyle(.secondary)
++                Text(model.statusText)
++                    .font(.caption2.weight(.semibold))
++                    .foregroundStyle(.secondary)
++            } header: {
++                Text("Local demo balance")
++            }
++
++            Section {
++                Button {
++                    model.addGift(received: false)
++                } label: {
++                    Label("Buy a demo gift · −100 Stars", systemImage: "gift.fill")
++                }
++                Button {
++                    model.addGift(received: true)
++                } label: {
++                    Label("Add “Gift to me” demo · +100 Stars", systemImage: "gift")
++                }
++            } header: {
++                Text("Demo actions")
++            }
++
++            Section {
++                let visibleGifts = model.state.gifts
++                    .filter { !$0.isHidden && $0.soldAt == nil }
++                    .sorted {
++                        if $0.isPinned != $1.isPinned { return $0.isPinned }
++                        return $0.createdAt > $1.createdAt
++                    }
++
++                if visibleGifts.isEmpty {
++                    Text("No local demo gifts yet")
++                        .foregroundStyle(.secondary)
++                } else {
++                    ForEach(visibleGifts) { gift in
++                        VStack(alignment: .leading, spacing: 8) {
++                            HStack(spacing: 12) {
++                                Text(gift.symbol).font(.largeTitle)
++                                VStack(alignment: .leading, spacing: 3) {
++                                    Text(gift.title).font(.headline)
++                                    Text(gift.isReceived ? "Received locally · demo" : "Purchased locally · demo")
++                                        .font(.caption)
++                                        .foregroundStyle(.secondary)
++                                }
++                                Spacer()
++                                if gift.isPinned {
++                                    Image(systemName: "pin.fill").foregroundStyle(.orange)
++                                }
++                            }
++                            HStack {
++                                Button(gift.isPinned ? "Unpin" : "Pin") { model.pin(gift) }
++                                Button("Hide") { model.hide(gift) }
++                                Button("Sell demo") { model.sell(gift) }
++                            }
++                            .font(.caption)
++                        }
++                        .padding(.vertical, 4)
++                    }
++                }
++            } header: {
++                Text("My local gifts")
++            }
++
++            Section {
++                Text("All gifts, balances and operations shown here are local previews. Nothing is sent to chats or other users, and Telegram's real gift inventory, Stars balance and transaction history are untouched.")
++                    .font(.footnote)
++                    .foregroundStyle(.secondary)
++            }
++        }
++        .navigationTitle("Local demo gifts")
++        .navigationBarTitleDisplayMode(.inline)
++    }
++}
++
