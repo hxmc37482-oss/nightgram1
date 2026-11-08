@@ -49,3 +49,12 @@ Docs/
 See [Docs/ROADMAP.md](Docs/ROADMAP.md). The next major task is integrating these modules into a pinned upstream Telegram-iOS checkout and adding the profile entry point. That work requires reviewing the upstream license and build system first.
 
 NightGram is unofficial. Use original iconography and clearly identify it as an unofficial client.
+
+
+## PampGram-style local gift engine
+
+The gift model and flows are adapted from the `PhantomGiftKit` design in the author's
+PampGram repository. NightGram supports local demo purchase/receive, separate demo
+Stars/TON/RUB balances, ledger history, pin/hide/wear, and a local-only marketplace.
+All such values are marked `LOCAL DEMO` and remain separate from Telegram account data.
+See [Docs/PAMPGRAM_GIFT_PORT.md](Docs/PAMPGRAM_GIFT_PORT.md).
