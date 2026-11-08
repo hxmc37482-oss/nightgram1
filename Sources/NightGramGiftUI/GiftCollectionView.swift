@@ -1,6 +1,9 @@
 #if canImport(SwiftUI)
 import SwiftUI
 import NightGramGiftEngine
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// A profile-grid preview for gifts stored only in NightGram's local demo database.
 public struct GiftCollectionView: View {
@@ -41,17 +44,17 @@ public struct GiftCollectionView: View {
                     }) { gift in
                         VStack(spacing: 7) {
                             Group {
+                                #if canImport(UIKit)
                                 if UIImage(named: gift.assetName) != nil {
-                                    Image(gift.assetName)
-                                        .resizable()
-                                        .scaledToFit()
+                                    Image(gift.assetName).resizable().scaledToFit()
                                 } else {
-                                    Image(systemName: "gift.fill")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .foregroundStyle(.secondary)
-                                        .padding(8)
+                                    Image(systemName: "gift.fill").resizable().scaledToFit()
+                                        .foregroundStyle(.secondary).padding(8)
                                 }
+                                #else
+                                Image(systemName: "gift.fill").resizable().scaledToFit()
+                                    .foregroundStyle(.secondary).padding(8)
+                                #endif
                             }
                             .frame(height: 54)
                             .frame(maxWidth: .infinity)
